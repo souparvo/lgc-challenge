@@ -1,0 +1,6 @@
+wheel
+apache-airflow[amazon,mssql,jdbc,postgres]
+pyarrow
+fastparquet
+redshift-auto-schema
+psycopg2-binary
