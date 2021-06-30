@@ -87,47 +87,17 @@ def table_file_to_s3(task_id: str, s3_key_path: str, bucket_name: str, local_fil
     return file_to_s3(local_path, s3_key, bucket_name)
 
 
-# def mssql_table_to_file(table_name: str, output_format: str, output_path: str, conn_id: str) -> str:
-#     """Creates CSV or Parquet file from MSSQL table.
-
-#     Args:
-#         table_name (str): full table name: <db>.<schema>.<table> 
-#         output_format (str): file format, either 'csv' or 'parquet'
-#         output_path (str): Output file path where files will be stored
-
-#     Returns:
-#         str: path of the file (is pushed to xcom)
-#     """
-#     # Create query schema
-#     db_name = table_name.split('.')[0]
-#     tb_name = table_name.split('.')[-1]
-#     tb_schema = table_name.split('.')[1]
-#     df_schema = get_schema_df_mssql(db_name, tb_name, tb_schema, conn_id)
-#     df_ori = query_mssql("SELECT * FROM %s" % table_name, conn_id)
-#     logger.info("DataFrame ORIGINAL types:\n%s" % str(df_ori.dtypes))
-#     df = convert_df_dtypes(df_ori, df_schema)
-#     # Create CSV file
-#     final_path = output_path + '/' + table_name + '.' + output_format
-#     if output_format == "csv":
-#         df.to_csv(final_path, index=False, sep=',', quoting=csv.QUOTE_NONNUMERIC, header=True)
-#     elif output_format == "parquet":
-#         df.to_parquet(final_path, index=False)
-#     else:
-#         raise
-#     logger.info("Saved %s format in path: %s" % (output_format, final_path))
-#     return final_path
-
 def mssql_table_to_file(table_name: str, output_format: str, output_path: str, conn_id: str) -> str:
-    """[summary]
+    """Creates CSV or Parquet file from MSSQL table.
 
     Args:
-        table_name (str): [description]
-        output_format (str): [description]
-        output_path (str): [description]
-        conn_id (str): [description]
+        table_name (str): full table name: <db>.<schema>.<table> 
+        output_format (str): file format, either 'csv' or 'parquet'
+        output_path (str): Output file path where files will be stored
+        conn_id (str): connection id to MSSQL
 
     Returns:
-        str: [description]
+        str: path of the file created (is pushed to xcom)
     """
     return sql_table_to_file(table_name, output_format, output_path, query_mssql, conn_id)
 

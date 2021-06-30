@@ -301,15 +301,17 @@ def query_mssql(cuery: str, conn_id: str) -> DataFrame:
 
 
 def sql_table_to_file(table_name: str, output_format: str, output_path: str, query_func: callable, conn_id: str) -> str:
-    """Creates CSV or Parquet file from MSSQL table.
+    """Creates CSV or Parquet file from table from a SQL query.
 
     Args:
         table_name (str): full table name: <db>.<schema>.<table> 
         output_format (str): file format, either 'csv' or 'parquet'
         output_path (str): Output file path where files will be stored
+        query_func (callable): function returnin a DataFrame and using an Airlfow hook
+        conn_id (str): connection id for target DB
 
     Returns:
-        str: path of the file (is pushed to xcom)
+        str: path of the file created
     """
     # Create query schema
     db_name = table_name.split('.')[0]
