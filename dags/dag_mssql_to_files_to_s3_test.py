@@ -1,21 +1,28 @@
 # Airflow imports
 from airflow import DAG
 from airflow.models.variable import Variable
+from airflow.models.base import SQL_ALCHEMY_SCHEMA
+from airflow.providers.microsoft.mssql.hooks.mssql import MsSqlHook
+from airflow.providers.amazon.aws.hooks.s3 import S3Hook, T
 from airflow.providers.amazon.aws.transfers.s3_to_redshift import S3ToRedshiftOperator
 from airflow.operators.dummy import DummyOperator
 from airflow.operators.python import PythonOperator
+from airflow.operators.bash import BashOperator
 # Builtin import
 from datetime import datetime
 import os, logging, csv
+# Extra packages imports
+from redshift_auto_schema import RedshiftAutoSchema
+from sqlalchemy import schema
 # Owner modules imports
-from functions.aux_functions import query_postgres, file_to_s3, query_mssql, get_schema_df_mssql, create_sql_create_statment, create_redshift_auto_schema, sql_table_to_file
+from functions.aux_functions import query_postgres, file_to_s3, query_mssql, get_schema_df_mssql, create_sql_create_statment, create_redshift_auto_schema, convert_df_dtypes
 # from functions.aux_functions import * 
 
 # Logging
 logger = logging.getLogger(__name__)
 
 # VARS
-DAG_ID = "mssql_files_to_s3_v1"
+DAG_ID = "mssql_files_to_s3_test"
 DAG_SCHEDULE = None
 DAG_START_DATE = datetime(2021, 6, 26)
 
@@ -87,49 +94,35 @@ def table_file_to_s3(task_id: str, s3_key_path: str, bucket_name: str, local_fil
     return file_to_s3(local_path, s3_key, bucket_name)
 
 
-# def mssql_table_to_file(table_name: str, output_format: str, output_path: str, conn_id: str) -> str:
-#     """Creates CSV or Parquet file from MSSQL table.
-
-#     Args:
-#         table_name (str): full table name: <db>.<schema>.<table> 
-#         output_format (str): file format, either 'csv' or 'parquet'
-#         output_path (str): Output file path where files will be stored
-
-#     Returns:
-#         str: path of the file (is pushed to xcom)
-#     """
-#     # Create query schema
-#     db_name = table_name.split('.')[0]
-#     tb_name = table_name.split('.')[-1]
-#     tb_schema = table_name.split('.')[1]
-#     df_schema = get_schema_df_mssql(db_name, tb_name, tb_schema, conn_id)
-#     df_ori = query_mssql("SELECT * FROM %s" % table_name, conn_id)
-#     logger.info("DataFrame ORIGINAL types:\n%s" % str(df_ori.dtypes))
-#     df = convert_df_dtypes(df_ori, df_schema)
-#     # Create CSV file
-#     final_path = output_path + '/' + table_name + '.' + output_format
-#     if output_format == "csv":
-#         df.to_csv(final_path, index=False, sep=',', quoting=csv.QUOTE_NONNUMERIC, header=True)
-#     elif output_format == "parquet":
-#         df.to_parquet(final_path, index=False)
-#     else:
-#         raise
-#     logger.info("Saved %s format in path: %s" % (output_format, final_path))
-#     return final_path
-
 def mssql_table_to_file(table_name: str, output_format: str, output_path: str, conn_id: str) -> str:
-    """[summary]
+    """Creates CSV or Parquet file from MSSQL table.
 
     Args:
-        table_name (str): [description]
-        output_format (str): [description]
-        output_path (str): [description]
-        conn_id (str): [description]
+        table_name (str): full table name: <db>.<schema>.<table> 
+        output_format (str): file format, either 'csv' or 'parquet'
+        output_path (str): Output file path where files will be stored
 
     Returns:
-        str: [description]
+        str: path of the file (is pushed to xcom)
     """
-    return sql_table_to_file(table_name, output_format, output_path, query_mssql, conn_id)
+    # Create query schema
+    db_name = table_name.split('.')[0]
+    tb_name = table_name.split('.')[-1]
+    tb_schema = table_name.split('.')[1]
+    df_schema = get_schema_df_mssql(db_name, tb_name, tb_schema, conn_id)
+    df_ori = query_mssql("SELECT * FROM %s" % table_name, conn_id)
+    logger.info("DataFrame ORIGINAL types:\n%s" % str(df_ori.dtypes))
+    df = convert_df_dtypes(df_ori, df_schema)
+    # Create CSV file
+    final_path = output_path + '/' + table_name + '.' + output_format
+    if output_format == "csv":
+        df.to_csv(final_path, index=False, sep=',', quoting=csv.QUOTE_NONNUMERIC, header=True)
+    elif output_format == "parquet":
+        df.to_parquet(final_path, index=False)
+    else:
+        raise
+    logger.info("Saved %s format in path: %s" % (output_format, final_path))
+    return final_path
 
 # DAG definition
 with DAG(
@@ -154,8 +147,8 @@ with DAG(
         query_mssql_id = 'mssql_table_%s_to_%s' % (id_name, out_format)
         query_mssql_table = PythonOperator(
             task_id=query_mssql_id,
+            # python_callable=mssql_table_to_file,
             python_callable=mssql_table_to_file,
-            # python_callable=sql_table_to_file,
             op_kwargs={
                 'output_path': file_out_path,
                 'table_name': table,
@@ -207,3 +200,8 @@ with DAG(
 
         start >> query_mssql_table >> send_file_s3 >> load_s3_to_redshift
         query_mssql_table >> create_tb_reshift >> load_s3_to_redshift
+
+if __name__ == '__main__':
+  from airflow.utils.state import State
+  dag.clear(dag_run_state=State.NONE)
+  dag.run()

@@ -1,6 +1,6 @@
 # Airflow imports
 from airflow.providers.microsoft.mssql.hooks.mssql import MsSqlHook
-from airflow.providers.amazon.aws.hooks.s3 import S3Hook
+from airflow.providers.amazon.aws.hooks.s3 import S3Hook, T
 from airflow.providers.jdbc.hooks.jdbc import JdbcHook
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 # Builtin import
@@ -184,7 +184,7 @@ def create_sql_create_statment(table: str, schema: str, schema_df: DataFrame, tr
     tb_cols_list = []
     # for row_item in df[(df.schema_name == schema) & (df.table_name == table)].itertuples():
     for row_item in schema_df.itertuples():
-        if translate_dict(row_item.data_type, translator) in sizables:
+        if translate_dict(row_item.data_type, translator) in SQL_SIZABLES:
             tb_cols_list.append('\t' + row_item.column_name + ' ' + translate_dict(row_item.data_type, translator).upper() + '(%d),\n' % row_item.max_length)
         else:
             tb_cols_list.append('\t' + row_item.column_name + ' ' + translate_dict(row_item.data_type, translator).upper() + ',\n')
@@ -224,29 +224,26 @@ def convert_df_dtypes(df_in: DataFrame, df_sch: DataFrame, trans_dict=DATAFRAME_
     Returns:
         DataFrame: df with converted types
     """
-    logger.info("DF schema:\n%s" % str(df_sch))
+
     # for each column, convert
     for df_row in df_sch.itertuples(index=False):
         col_name = df_row.column_name
         sql_dtype = df_row.data_type
-        logger.info("Converted column %s from %s to %s" % (col_name, sql_dtype, trans_dict[sql_dtype]))
+        logger.debug("Converted column %s from %s to %s" % (col_name, sql_dtype, trans_dict[sql_dtype]))
         try:
             df_in[col_name] = df_in[col_name].astype(trans_dict[sql_dtype])
         except Exception as e:
             logger.error("Error converting type %s, assuming string type for column: %s" % (sql_dtype, col_name))
             df_in[col_name] = df_in[col_name].astype(trans_dict[sql_dtype])
-        
-    logger.info("Updated types:\n%s" % df_in.dtypes)
+        logger.debug("Updated types:\n%s" % df_in.dtypes)
+
     return df_in
 
 
-def get_schema_df_mssql(db: str, schema: str, table: str, conn_id: str, sql_desc=SQL_DESCRIBE_TABLES) -> DataFrame:
+def get_schema_df(db: str, schema: str, table: str, query_func_df: callable, conn_id: str, sql_desc=SQL_DESCRIBE_TABLES) -> DataFrame:
 
     # query for schemas
-    logger.info("Running query to ger SCHEMA DF:\n%s" % sql_desc.format(db=db, tb=table, sch=schema))
-    df_sch = query_mssql(sql_desc.format(db=db, tb=table, sch=schema), conn_id)
-    logger.info("Collected schema DF:\n%s" % str(df_sch))
-    return df_sch
+    return query_func_df(sql_desc.format(db=db, tb=table, sch=schema), conn_id)
 
 
 ### JDBC Functions
@@ -286,7 +283,7 @@ def query_postgres(query: str, conn_id: str, return_df=True):
         return ph.run(sql=query)
 
 ### MSSQL functions
-def query_mssql(cuery: str, conn_id: str) -> DataFrame:
+def query_mssql(cuery: str, conn_id='mssql_local'):
     """Executes a SQL query on a MSSQL and returns a pandas df with the results.
 
     Args:
@@ -315,10 +312,10 @@ def sql_table_to_file(table_name: str, output_format: str, output_path: str, que
     db_name = table_name.split('.')[0]
     tb_name = table_name.split('.')[-1]
     tb_schema = table_name.split('.')[1]
-    df_schema = get_schema_df_mssql(db_name, tb_schema, tb_name, conn_id)
-    df_ori = query_func("SELECT * FROM %s" % table_name, conn_id)
+    df_schema = get_schema_df(db_name, tb_name, tb_schema, query_func, conn_id)
+    df_ori = query_func("SELECT * FROM %s" % table_name)
     logger.info("DataFrame ORIGINAL types:\n%s" % str(df_ori.dtypes))
-    df = convert_df_dtypes(df_ori, df_schema)
+    df = convert_df_dtypes(df_ori, df_schema, DATAFRAME_TRANSLATE)
     # Create CSV file
     final_path = output_path + '/' + table_name + '.' + output_format
     if output_format == "csv":
@@ -329,3 +326,27 @@ def sql_table_to_file(table_name: str, output_format: str, output_path: str, que
         raise
     logger.info("Saved %s format in path: %s" % (output_format, final_path))
     return final_path
+
+
+def mssql_table_to_file(table_name: str, output_format: str, output_path: str, conn_id: str) -> str:
+    """[summary]
+
+    Args:
+        table_name (str): name of the table to store as file
+        output_format (str): format of the file to be stored
+        output_path (str): output path of the file
+        conn_id (str): connection ID for the query function
+
+    Returns:
+        str: return file path stored
+    """
+    logger.info("Executing function...")
+    return sql_table_to_file(table_name, output_format, output_path, query_mssql, conn_id)
+
+
+
+### TESTING
+
+out = mssql_table_to_file('AdventureWorks.Purchasing.ProductVendor', 'csv', os.environ['AIRFLOW_HOME'] + '/data', 'mssql_local')
+
+print(out)
