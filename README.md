@@ -43,8 +43,10 @@ bash airflow.sh stop
 __Variables__:
 1. Login to Airflow
 2. On the top tab, go to Admin --> Variables --> click on the "Import Variables" and select the `variables.json` file on the root of the repo
-3. Create the connections to MSSQL, AWS and Redshift instance: Admin --> Connections --> `+` button
-4. The connection ids need to have the name reflected in the variables
+
+__Connections__:
+1. Create the connections to MSSQL, AWS and Redshift instance: Admin --> Connections --> `+` button
+2. Add the connection ids in the variables
 
 ### Step 3 - Change variables to your own config
 
