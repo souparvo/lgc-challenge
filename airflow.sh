@@ -68,8 +68,9 @@ elif [ "$OPTION" = "stop" ]; then
     logging "Airflow processes remaining: "
     logging "Sending SIGTERM to airflow processes"
     if [ ${N_AIRFLOW_PROCESSES} -gt 0 ]; then
-        kill -9 $(ps aux | grep 'airflow' | grep -Ev 'grep|airflow.sh' | awk '{print $2}')ç
-        logging "Airflow processes remaining: $(wc -l $(ps aux | grep 'airflow' | grep -Ev 'grep|airflow.sh'))"
+
+        kill -9 $(ps aux | grep 'airflow' | grep -Ev 'grep|airflow.sh' | awk '{print $2}')
+        sleep 2 && logging "Airflow processes remaining: $(ps aux | grep 'airflow' | grep -Ev 'grep|airflow.sh' | wc -l)"
     else
         logging "No processes to kill"
     fi
