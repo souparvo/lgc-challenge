@@ -15,7 +15,7 @@ import os, logging, csv
 from redshift_auto_schema import RedshiftAutoSchema
 from sqlalchemy import schema
 # Owner modules imports
-from functions.aux_functions import query_postgres, file_to_s3, query_mssql, get_schema_df_mssql, create_sql_create_statment, create_redshift_auto_schema, convert_df_dtypes
+from functions.aux_functions import query_postgres, file_to_s3, query_mssql, get_schema_df, create_sql_create_statment, create_redshift_auto_schema, convert_df_dtypes
 # from functions.aux_functions import * 
 
 # Logging
@@ -63,7 +63,7 @@ def create_redshift_table(db_: str, schema_: str, table_: str, redshift_conn_id:
         dll = create_redshift_auto_schema(file_path, schema_, table_)
     else:
         # Getting schema from connection
-        df_schema = get_schema_df_mssql(db=db_, schema=schema_, table=table_, conn_id=src_conn_id)
+        df_schema = get_schema_df(db=db_, schema=schema_, table=table_, conn_id=src_conn_id, query_func=query_mssql)
         # df_schema = query_mssql(SQL_DESCRIBE_TABLES.format(db=db_, tb=table_, sch=schema_), conn_id=src_conn_id)
         # Create schema
         dll = create_sql_create_statment(table_, schema_, df_schema)
@@ -109,7 +109,8 @@ def mssql_table_to_file(table_name: str, output_format: str, output_path: str, c
     db_name = table_name.split('.')[0]
     tb_name = table_name.split('.')[-1]
     tb_schema = table_name.split('.')[1]
-    df_schema = get_schema_df_mssql(db_name, tb_name, tb_schema, conn_id)
+    # df_schema = get_schema_df_mssql(db_name, tb_name, tb_schema, conn_id)
+    df_schema = get_schema_df(db=db_name, schema=tb_schema, table=tb_name, conn_id=conn_id, query_func=query_mssql)
     df_ori = query_mssql("SELECT * FROM %s" % table_name, conn_id)
     logger.info("DataFrame ORIGINAL types:\n%s" % str(df_ori.dtypes))
     df = convert_df_dtypes(df_ori, df_schema)

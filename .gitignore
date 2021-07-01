@@ -1,3 +1,6 @@
-airflow
+airflow/*
 *.pyc
 __pycache__
+_old
+docker/image
+mssql/*

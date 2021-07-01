@@ -23,8 +23,9 @@ create_dir() {
 
 ## VARS
 
-# export AIRFLOW_HOME=${0%/*}/airflow
-AIRFLOW_VENV=$AIRFLOW_HOME/venv
+# Set AIRFLOW_HOME to the repo /airflow folder
+export AIRFLOW_HOME=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)/airflow
+export AIRFLOW_VENV=$AIRFLOW_HOME/venv
 OPTION=$1
 
 logging "AIRFLOW_HOME: ${AIRFLOW_HOME}"
@@ -63,7 +64,14 @@ elif [ "$OPTION" = "start" ]; then
 elif [ "$OPTION" = "stop" ]; then
     logging "Removing pid files..."
     rm -rf $AIRFLOW_HOME/run/*.pid
-    kill -9 $(ps aux | grep 'airflow' | awk '{print $2}')
+    N_AIRFLOW_PROCESSES=$(ps aux | grep 'airflow' | grep -Ev 'grep|airflow.sh' | wc -l)
+    logging "Airflow processes remaining: "
+    logging "Sending SIGTERM to airflow processes"
+    if [ ${N_AIRFLOW_PROCESSES} -gt 0 ]; then
+        kill -9 $(ps aux | grep 'airflow' | grep -Ev 'grep|airflow.sh' | awk '{print $2}')ç
+        logging "Airflow processes remaining: $(wc -l $(ps aux | grep 'airflow' | grep -Ev 'grep|airflow.sh'))"
+    else
+        logging "No processes to kill"
+    fi
 fi
-
 logging "END"

@@ -45,7 +45,7 @@ ORDER BY
 # Translates SQL Server types to DataFrame
 DATAFRAME_TRANSLATE = {
     "bigint": "Int64",
-    "bit": "Boolean",
+    "bit": "bool",
     "decimal": "Float64",
     "int": "Int64",
     "money": "Float64",
@@ -77,8 +77,9 @@ DATAFRAME_TRANSLATE = {
     "rowversion": "str",
     "uniqueidentifier": "str",
     "xml": "str",
-    "flag": "Boolean",
-    "name": "text"
+    "flag": "bool",
+    "name": "str",
+    'accountnumber': "str"
 }
 
 SQL_TRANSLATE = {
@@ -116,7 +117,8 @@ SQL_TRANSLATE = {
   "uniqueidentifier": "text",
   "xml": "text",
   "flag": "boolean",
-  "name": "text"
+  "name": "text",
+  "accountnumber": "text"
 }
 
 SQL_SIZABLES = ['char', 'varchar', 'nvarchar', 'nchar', 'decimal', 'numeric']
@@ -201,7 +203,7 @@ def create_sql_create_statment(table: str, schema: str, schema_df: DataFrame, tr
 
 ### Aux functions
 def translate_dict(item: str, trans: dict) -> str:
-    """Auxiliar function to translate using a dictionary.
+    """Auxiliar function to translate using a dictionary. Forces lower case in keys.
 
     Args:
         item (str): key item requiring translation
@@ -218,8 +220,8 @@ def convert_df_dtypes(df_in: DataFrame, df_sch: DataFrame, trans_dict=DATAFRAME_
 
     Args:
         df_in (DataFrame): df to transform dtypes
-        df_sch (DataFrame): data frame with schema
-        trans_dict (dict): [description]
+        df_sch (DataFrame): data frame with schema from table from source database converted to data frame
+        trans_dict (dict): translation dictionary with <key,value> pair, where key is the type to translate
 
     Returns:
         DataFrame: df with converted types
@@ -229,25 +231,55 @@ def convert_df_dtypes(df_in: DataFrame, df_sch: DataFrame, trans_dict=DATAFRAME_
     for df_row in df_sch.itertuples(index=False):
         col_name = df_row.column_name
         sql_dtype = df_row.data_type
-        logger.info("Converted column %s from %s to %s" % (col_name, sql_dtype, trans_dict[sql_dtype]))
         try:
-            df_in[col_name] = df_in[col_name].astype(trans_dict[sql_dtype])
+            df_in[col_name] = df_in[col_name].astype(translate_dict(sql_dtype, trans_dict), errors='ignore')
+            logger.debug("Converted column %s from %s to %s" % (col_name, sql_dtype, translate_dict(sql_dtype, trans_dict)))
         except Exception as e:
-            logger.error("Error converting type %s, assuming string type for column: %s" % (sql_dtype, col_name))
-            df_in[col_name] = df_in[col_name].astype(trans_dict[sql_dtype])
+            logger.error("Error converting type %s, assuming 'str' type for column: %s" % (sql_dtype, col_name))
+            df_in[col_name] = df_in[col_name].astype('str')
+            pass
         
     logger.info("Updated types:\n%s" % df_in.dtypes)
     return df_in
 
 
-def get_schema_df_mssql(db: str, schema: str, table: str, conn_id: str, sql_desc=SQL_DESCRIBE_TABLES) -> DataFrame:
+# def get_schema_df_mssql(db: str, schema: str, table: str, conn_id: str, sql_desc=SQL_DESCRIBE_TABLES) -> DataFrame:
+
+#     # query for schemas
+#     logger.info("Running query to ger SCHEMA DF:\n%s" % sql_desc.format(db=db, tb=table, sch=schema))
+#     df_sch = query_mssql(sql_desc.format(db=db, tb=table, sch=schema), conn_id)
+#     logger.info("Collected schema DF:\n%s" % str(df_sch))
+#     return df_sch
+
+
+def get_schema_df(db: str, schema: str, table: str, conn_id: str, query_func: callable, sql_desc=SQL_DESCRIBE_TABLES) -> DataFrame:
+    """Gets schema of table from source database to serve as translation for type matching. Returns a dataframe with schema.
+
+    Args:
+        db (str): database name
+        schema (str): schema of the table in the database
+        table (str): table name
+        conn_id (str): connection id for the database
+        query_func (callable): function implementing a get_pandas_df from an Airflow hook (function query_<hook type>)
+        sql_desc (str, optional): query to create schema data frame. Defaults to SQL_DESCRIBE_TABLES.
+
+    Returns:
+        DataFrame: dataframe with table schema from database catalog and/or system tables. Must have, at least the following
+        columns:
+            schema_name - name of the schema
+            table_name - name of the table
+            column_id (optional) - id of the column
+            column_name - name of the column
+            data_type - data type, translation dict must have these types
+            max_length - length (in bytes) for the data types, specially chars and varchars
+            precision (optional) - precision of the data types
+    """
 
     # query for schemas
-    logger.info("Running query to ger SCHEMA DF:\n%s" % sql_desc.format(db=db, tb=table, sch=schema))
-    df_sch = query_mssql(sql_desc.format(db=db, tb=table, sch=schema), conn_id)
-    logger.info("Collected schema DF:\n%s" % str(df_sch))
+    logger.debug("Running query to get SCHEMA DF:\n%s" % sql_desc.format(db=db, tb=table, sch=schema))
+    df_sch = query_func(sql_desc.format(db=db, tb=table, sch=schema), conn_id)
+    logger.debug("Collected schema DF:\n%s" % str(df_sch))
     return df_sch
-
 
 ### JDBC Functions
 def query_jdbc(query: str, conn_id: str, return_df=True):
@@ -317,7 +349,8 @@ def sql_table_to_file(table_name: str, output_format: str, output_path: str, que
     db_name = table_name.split('.')[0]
     tb_name = table_name.split('.')[-1]
     tb_schema = table_name.split('.')[1]
-    df_schema = get_schema_df_mssql(db_name, tb_schema, tb_name, conn_id)
+    # df_schema = get_schema_df_mssql(db_name, tb_schema, tb_name, conn_id)
+    df_schema = get_schema_df(db=db_name, schema=tb_schema, table=tb_name, conn_id=conn_id, query_func=query_mssql)
     df_ori = query_func("SELECT * FROM %s" % table_name, conn_id)
     logger.info("DataFrame ORIGINAL types:\n%s" % str(df_ori.dtypes))
     df = convert_df_dtypes(df_ori, df_schema)

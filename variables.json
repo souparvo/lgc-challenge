@@ -1,0 +1,17 @@
+{
+    "lgc_vars": {
+        "aws_conn_id": "aws_airflow",
+        "mssql_conn_id": "mssql_local",
+        "output_format": "csv",
+        "postgres_redshift_conn_id": "redshift_awsuser_testdb",
+        "s3_bucket": "lgc-challenge",
+        "s3_key_path": "redshift/data",
+        "tables_to_process": [
+            "AdventureWorks.Purchasing.ProductVendor",
+            "AdventureWorks.Purchasing.PurchaseOrderDetail",
+            "AdventureWorks.Purchasing.PurchaseOrderHeader",
+            "AdventureWorks.Purchasing.ShipMethod",
+            "AdventureWorks.Purchasing.Vendor"
+        ]
+    }
+}

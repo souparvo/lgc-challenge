@@ -8,7 +8,7 @@ from airflow.operators.python import PythonOperator
 from datetime import datetime
 import os, logging, csv
 # Owner modules imports
-from functions.aux_functions import query_postgres, file_to_s3, query_mssql, get_schema_df_mssql, create_sql_create_statment, create_redshift_auto_schema, sql_table_to_file
+from functions.aux_functions import query_postgres, file_to_s3, query_mssql, get_schema_df, create_sql_create_statment, create_redshift_auto_schema, sql_table_to_file
 # from functions.aux_functions import * 
 
 # Logging
@@ -56,7 +56,8 @@ def create_redshift_table(db_: str, schema_: str, table_: str, redshift_conn_id:
         dll = create_redshift_auto_schema(file_path, schema_, table_)
     else:
         # Getting schema from connection
-        df_schema = get_schema_df_mssql(db=db_, schema=schema_, table=table_, conn_id=src_conn_id)
+        # df_schema = get_schema_df_mssql(db=db_, schema=schema_, table=table_, conn_id=src_conn_id)
+        df_schema = get_schema_df(db=db_, schema=schema_, table=table_, conn_id=src_conn_id, query_func=query_mssql)
         # df_schema = query_mssql(SQL_DESCRIBE_TABLES.format(db=db_, tb=table_, sch=schema_), conn_id=src_conn_id)
         # Create schema
         dll = create_sql_create_statment(table_, schema_, df_schema)
@@ -114,7 +115,7 @@ with DAG(
     )
     ##
     # table = tables_to_process[0] ## TO CHANGE TO CYCLE
-    for table in tables_to_process[0:1]:
+    for table in tables_to_process:
         # Create schenma and table names
         db = table.split('.')[0]
         tb_schema = table.split('.')[1]
