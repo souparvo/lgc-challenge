@@ -102,4 +102,6 @@ The database should be successfully loaded from a backup file.
 
 ## Running the DAG
 
-The Airflow DAG is not configured to be automatically scheduled, therefore it should be manually triggered. Adding tables  Configuring the `tables_to_process` Variable in the 
+The Airflow DAG is not configured to be automatically scheduled, therefore it should be manually triggered. 
+
+Configuring the `tables_to_process` key in the `lgc_vars` variable with the tables to be sent to redshift.
