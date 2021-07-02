@@ -14,7 +14,9 @@ WSL2 Ubuntu 20.04 LTS
 
 ## Installation of Airflow
 
-Airflow is installed on a virtual environment using python3. It is configured as a development environment with a single process for webserver and executors. The database is a SQLlite. Installation of Airflow will create a `airflow` folder with the required files on the root of the repository.
+Airflow is installed on a virtual environment using python3. It is configured as a development environment with a single process for webserver and sync executor, and a separate process for the scheduler. The metadata database is a SQLlite. There is no concurrency in this deployment, tasks are executed synchronously.
+
+Installation of Airflow will create a `airflow` folder with the required files on the root of the repository.
 
 ### Step 1 - Install Airflow instance
 
