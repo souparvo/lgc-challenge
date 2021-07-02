@@ -1,12 +1,12 @@
 # LGC Challenge
 
-## Description
+## Description and approach
 
-Airflow is an open source orchestration tool for batch data pipelines. Airflow API: Operators and Hooks is used as the programming foundation for the ingestion of data from a MSSQL Server database to a Redshift cluster. The pipeline deployed follows the steps:
+[Apache Airflow](https://airflow.apache.org/) is an open source orchestration tool for batch data pipelines. Airflow API: Operators and Hooks is used as the programming foundation for the ingestion of data from a MSSQL Server database to a Redshift cluster. The pipeline deployed follows the steps:
 
-__load table to file --> load file to S3 bucket --> create redshift table --> load S3 bucket file to redshift table__
+__load MSSQL table to CSV/Parquet file --> load CSV/Parquet file to S3 bucket --> create redshift table from schema downloaded from MSSQL --> load S3 bucket file to redshift table__
 
-The DAG can be configured to load a tables, using the Variables feature of Airflow.
+The DAG file used is `dags/dag_mssql_to_files_to_s3.py`. The DAG can be configured to load a tables, using the Variables feature of Airflow. 
 
 ## Environment
 
@@ -18,7 +18,7 @@ Airflow is installed on a virtual environment using python3. It is configured as
 
 ### Step 1 - Install Airflow instance
 
-In the root of the repository folder, use the airflow.sh script to install an instance of Airflow.
+In the root of the repository folder, use the `airflow.sh` script to install an instance of Airflow.
 
 ```bash
 cd /path/to/repo
@@ -75,8 +75,7 @@ Each variable loaded needs to be changed to reflect the installed environment.
 
 MSSQL Server is used as the source of the data. The repo includes scripts to install and load data.
 
-### Step 2 - Installs MS SQL Server (choose express version) and loads the AdventureWorks database
-
+### Step 1 - Installs MS SQL Server (choose express version) 
 Use the scritps in the `mssql/` folder. Execute the following commands, assuming being in the root of the repo:
 
 ```bash
@@ -91,6 +90,8 @@ bash mssql.sh start
 
 Process will start in the foreground, to continue to load the database keep the WSL on and use another WSL window.
 
+### Step 2 - Load the AdventureWorks database
+
 To load the databse use the `load_adventureworks.sh` script:
 
 ```bash
@@ -99,5 +100,6 @@ bash load_adventureworks.sh
 
 The database should be successfully loaded from a backup file.
 
+## Running the DAG
 
-
+The Airflow DAG is not configured to be automatically scheduled, therefore it should be manually triggered. Adding tables  Configuring the `tables_to_process` Variable in the 
