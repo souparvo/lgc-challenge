@@ -3,4 +3,4 @@ airflow/*
 __pycache__
 _old
 docker/image
-mssql/*
+*.bak

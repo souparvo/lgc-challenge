@@ -94,7 +94,7 @@ Process will start in the foreground, to continue to load the database keep the 
 
 ### Step 2 - Load the AdventureWorks database
 
-To load the databse use the `load_adventureworks.sh` script:
+To load the database use the `load_adventureworks.sh` script:
 
 ```bash
 bash load_adventureworks.sh
